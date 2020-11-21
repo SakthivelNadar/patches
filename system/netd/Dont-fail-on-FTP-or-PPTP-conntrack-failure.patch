@@ -1,0 +1,49 @@
+From 155332bc151304eafbd3ca2f44cf9c13a0af1c5d Mon Sep 17 00:00:00 2001
+From: Pierre-Hugues Husson <phh@phh.me>
+Date: Mon, 29 Jul 2019 18:09:12 +0200
+Subject: [PATCH] netd: Don't fail on FTP or PPTP conntrack failure
+
+The issue has been seen on some Samsung devices.
+See https://github.com/phhusson/treble_experimentations/issues/425
+
+Thanks @zamrih for pin-pointing the issue and validating fix
+
+Change-Id: I3d9c865eb5a4b421f9983210c2ceae62b4906234
+Signed-off-by: theimpulson <aayushgupta219@gmail.com>
+---
+ server/Android.bp           | 1 +
+ server/TetherController.cpp | 2 ++
+ 2 files changed, 3 insertions(+)
+
+diff --git a/server/Android.bp b/server/Android.bp
+index fcd79e5f..5f663f51 100644
+--- a/server/Android.bp
++++ b/server/Android.bp
+@@ -111,6 +111,7 @@ cc_library_static {
+     defaults: [
+         "netd_defaults",
+         "needs_netd_direct_connect_rule_defaults",
++        "ignores_ftp_pptp_conntrack_failure",
+     ],
+     include_dirs: [
+         "system/netd/include",
+diff --git a/server/TetherController.cpp b/server/TetherController.cpp
+index 2445fb70..1c066a42 100644
+--- a/server/TetherController.cpp
++++ b/server/TetherController.cpp
+@@ -753,12 +753,14 @@ int TetherController::setForwardRules(bool add, const char *intIface, const char
+     }
+ 
+     std::vector<std::string> v4 = {
++#ifndef IGNORES_FTP_PPTP_CONNTRACK_FAILURE
+             "*raw",
+             StringPrintf("%s %s -p tcp --dport 21 -i %s -j CT --helper ftp", op,
+                          LOCAL_RAW_PREROUTING, intIface),
+             StringPrintf("%s %s -p tcp --dport 1723 -i %s -j CT --helper pptp", op,
+                          LOCAL_RAW_PREROUTING, intIface),
+             "COMMIT",
++#endif
+             "*filter",
+             StringPrintf("%s %s -i %s -o %s -m state --state ESTABLISHED,RELATED -g %s", op,
+                          LOCAL_FORWARD, extIface, intIface, LOCAL_TETHER_COUNTERS_CHAIN),
+
