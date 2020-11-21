@@ -1,0 +1,78 @@
+From 017ae156185b45c3b156b7e6df279ca755684831 Mon Sep 17 00:00:00 2001
+From: codeworkx <daniel.hillenbrand@codeworkx.de>
+Date: Sat, 9 Nov 2019 00:54:34 +0000
+Subject: [PATCH] FingerprintService: add overlay to prevent cleanup of unused
+ fingerprints
+
+Restores Oreo behaviour.
+
+Usage: Set config_cleanupUnusedFingerprints overlay to false
+
+Change-Id: Id032fae5c6ae70ce57a60c6f5d3dbe0a6cd33258
+---
+ core/res/res/values/custom_config.xml                       | 2 ++
+ core/res/res/values/custom_symbols.xml                      | 2 ++
+ .../com/android/server/biometrics/BiometricServiceBase.java | 6 ++++--
+ 3 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/core/res/res/values/custom_config.xml b/core/res/res/values/custom_config.xml
+index c1e80088769..ec59cf2a166 100644
+--- a/core/res/res/values/custom_config.xml
++++ b/core/res/res/values/custom_config.xml
+@@ -37,4 +37,6 @@
+     <!-- Whether device ignores the RSSNR signal implementation -->
+     <bool name="config_ignoreRssnrSignalLevel">false</bool>
+ 
++    <!-- Whether to cleanup fingerprints upon connection to the daemon and when user switches -->
++    <bool name="config_cleanupUnusedFingerprints">true</bool>
+ </resources>
+diff --git a/core/res/res/values/custom_symbols.xml b/core/res/res/values/custom_symbols.xml
+index 44a295beb73..bb4023d245f 100644
+--- a/core/res/res/values/custom_symbols.xml
++++ b/core/res/res/values/custom_symbols.xml
+@@ -34,4 +34,6 @@
+     <!-- Whether device ignores the RSSNR signal implementation -->
+     <java-symbol type="bool" name="config_ignoreRssnrSignalLevel" />
+ 
++    <!-- Whether to cleanup fingerprints upon connection to the daemon and when user switches -->
++    <java-symbol type="bool" name="config_cleanupUnusedFingerprints" />
+ </resources>
+diff --git a/services/core/java/com/android/server/biometrics/BiometricServiceBase.java b/services/core/java/com/android/server/biometrics/BiometricServiceBase.java
+index e2fd21ba1f8..a43f19e256e 100644
+--- a/services/core/java/com/android/server/biometrics/BiometricServiceBase.java
++++ b/services/core/java/com/android/server/biometrics/BiometricServiceBase.java
+@@ -73,7 +73,6 @@
+ 
+     protected static final boolean DEBUG = true;
+ 
+-    private static final boolean CLEANUP_UNKNOWN_TEMPLATES = true;
+     private static final String KEY_LOCKOUT_RESET_USER = "lockout_reset_user";
+     private static final int MSG_USER_SWITCHING = 10;
+     private static final long CANCEL_TIMEOUT_LIMIT = 3000; // max wait for onCancel() from HAL,in ms
+@@ -87,6 +86,7 @@
+     private final BiometricTaskStackListener mTaskStackListener = new BiometricTaskStackListener();
+     private final ResetClientStateRunnable mResetClientState = new ResetClientStateRunnable();
+     private final ArrayList<LockoutResetMonitor> mLockoutMonitors = new ArrayList<>();
++    private final boolean mCleanupUnusedFingerprints;
+ 
+     protected final IStatusBarService mStatusBarService;
+     protected final Map<Integer, Long> mAuthenticatorIds =
+@@ -652,6 +652,8 @@ public BiometricServiceBase(Context context) {
+         mPowerManager = mContext.getSystemService(PowerManager.class);
+         mUserManager = UserManager.get(mContext);
+         mMetricsLogger = new MetricsLogger();
++        mCleanupUnusedFingerprints = mContext.getResources().getBoolean(
++                com.android.internal.R.bool.config_cleanupUnusedFingerprints);
+     }
+ 
+     @Override
+@@ -1210,7 +1212,7 @@ protected long getAuthenticatorId(String opPackageName) {
+      * @param userId
+      */
+     protected void doTemplateCleanupForUser(int userId) {
+-        if (CLEANUP_UNKNOWN_TEMPLATES) {
++        if (mCleanupUnusedFingerprints) {
+             enumerateUser(userId);
+         }
+     }
+
